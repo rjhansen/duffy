@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file>Document-new.svg</file>
+        <file>Document-open.svg</file>
+        <file>Document-save.svg</file>
+        <file>Document-save-as.svg</file>
+        <file>System-log-out.svg</file>
+        <file>Document-close.svg</file>
+        <file>Duffy.svg</file>
+        <file>Help-browser.svg</file>
+    </qresource>
+</RCC>
