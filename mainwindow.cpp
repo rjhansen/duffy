@@ -619,13 +619,14 @@ void Worker::run()
     for (vector<FileMetaInformation>::iterator iter = fmi->begin() ;
          iter != fmi->end() ; ++iter)
     {
-        hashmap[iter->hash()] = false;
+        if ((iter->hash() != "(could not access file)") &&
+            (32 == iter->hash().size() || 40 == iter->hash().size()))
+            hashmap[iter->hash()] = false;
     }
 
     vector<std::string> hashes;
     for (map<QString, bool>::iterator iter = hashmap.begin() ; iter != hashmap.end() ; ++iter)
     {
-        if (iter->first.size() != 32 && iter->first.size() != 40) BOMB_WITH_WARNING("internal consistency error #1");
         hashes.push_back(iter->first.toStdString());
     }
     sort(hashes.begin(), hashes.end());
@@ -651,7 +652,7 @@ void Worker::run()
 
     QTcpSocket sock;
     sock.connectToHost("nsrl.kyr.us", 9120);
-    if (false == sock.waitForConnected(5000)) BOMB_WITH_WARNING("could not connect to NSRL server");
+    if (false == sock.waitForConnected(10000)) BOMB_WITH_WARNING("could not connect to NSRL server");
 
     sock.write("Version: 2.0\r\n");
     if (false == sock.waitForReadyRead(5000)) BOMB_WITH_WARNING("NSRL server timed out");
@@ -676,7 +677,7 @@ void Worker::run()
             string hash = hashes.at(idx2);
             bool present = (result.at(idx2) == '0') ? false : true;
             map<QString, bool>::iterator mapiter = hashmap.find(QString::fromStdString(hash));
-            if (hashmap.end() == mapiter) BOMB_WITH_WARNING("internal consistency check failed");
+            if (hashmap.end() == mapiter) BOMB_WITH_WARNING("internal consistency check #1 failed");
             mapiter->second = present;
         }
     }
@@ -684,8 +685,12 @@ void Worker::run()
     sock.close();
     for (vector<FileMetaInformation>::iterator iter = fmi->begin() ; iter != fmi->end() ; ++iter)
     {
+        if (iter->hash() == "(could not access file)")
+        {
+            continue;
+        }
         map<QString, bool>::iterator mapiter = hashmap.find(iter->hash());
-        if (hashmap.end() == mapiter) BOMB_WITH_WARNING("internal consistency check failed");
+        if (hashmap.end() == mapiter) BOMB_WITH_WARNING("internal consistency check #2 failed");
         iter->presentInNSRL = mapiter->second;
     }
     emit updateMessage("Query complete");
