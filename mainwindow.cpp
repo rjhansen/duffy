@@ -1,3 +1,20 @@
+/* $Id$
+ * Copyright (c) 2012, Robert J. Hansen <rjh@secret-alchemy.com>
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <QFileDialog>
@@ -230,7 +247,10 @@ void MainWindow::doActionAbout()
 void MainWindow::doActionClose()
 {
     if (0 == ui->treeWidget->topLevelItemCount())
+    {
+        ui->actionClose->setEnabled(false);
         return;
+    }
     if (hasUnsavedData)
     {
         QMessageBox::StandardButton btn;
@@ -254,6 +274,8 @@ void MainWindow::doActionClose()
         hasUnsavedData = false;
         updateUI();
     }
+    files.clear();
+    updateUI();
 }
 
 void MainWindow::doActionHelpIndex()
@@ -344,7 +366,7 @@ void MainWindow::doActionOpen()
     updateUI();
     QString filename = QFileDialog::getOpenFileName(this,
                                                     "Open a Duffy file",
-                                                    QString(),
+                                                    QDir::homePath(),
                                                     "Duffy files (*.dfy)");
     if (filename.isNull())
     {
@@ -378,6 +400,24 @@ void MainWindow::doActionOpen()
 
 void MainWindow::doActionQuit()
 {
+    if (hasUnsavedData)
+    {
+        QMessageBox::StandardButton btn;
+
+        btn = QMessageBox::question(this,
+                                    "",
+                                    "Would you like to save this analysis?",
+                                    QMessageBox::Yes|QMessageBox::No|QMessageBox::Cancel,
+                                    QMessageBox::Yes);
+        if (btn == QMessageBox::Yes)
+        {
+            doActionSave();
+        }
+        if (btn == QMessageBox::Cancel)
+        {
+            return;
+        }
+    }
     qApp->quit();
     return;
 }
@@ -647,9 +687,6 @@ void Worker::run()
         map<QString, bool>::iterator mapiter = hashmap.find(iter->hash());
         if (hashmap.end() == mapiter) BOMB_WITH_WARNING("internal consistency check failed");
         iter->presentInNSRL = mapiter->second;
-
-        if (iter->inNSRL())
-            std::cerr << iter->hash().toStdString() << "  " << iter->filename().toStdString() << "\n";
     }
     emit updateMessage("Query complete");
     emit updateFileMetaInformation(fmi);
