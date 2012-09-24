@@ -1,15 +1,33 @@
+/* $Id$
+ * Copyright (c) 2012, Robert J. Hansen <rjh@secret-alchemy.com>
+ *
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
 #include <QMainWindow>
 #include <QTimer>
-#include <QProcess>
 #include <QDateTime>
 #include <QFileInfo>
 #include <QThread>
+#include <QMutex>
+#include <QTreeWidgetItem>
+#include <QCryptographicHash>
+
 #include <vector>
 #include <map>
-#include <QTreeWidgetItem>
 #include <iostream>
 
 namespace Ui {
@@ -17,36 +35,46 @@ class MainWindow;
 }
 
 class MainWindow;
+class Worker;
 
 class FileMetaInformation
 {
-friend class MainWindow;
+friend class Worker;
 public:
-    FileMetaInformation(QString filename, QString md5) :
+    FileMetaInformation(QString filename) :
         fn(filename),
-        hashValue(md5),
+        hashValue("(could not access file)"),
         modificationDate(QFileInfo(filename).lastModified()),
         presentInNSRL(false)
     {
+        QFile f(filename);
+        QCryptographicHash engine(QCryptographicHash::Md5);
+
+        if (! f.open(QIODevice::ReadOnly))
+            return;
+
+        while (!f.atEnd())
+            engine.addData(f.read(1 << 20));
+
+        hashValue = QString(engine.result().toHex());
     }
+
+    FileMetaInformation(QString filename,
+                        QString hash,
+                        QString modified,
+                        QString present) :
+        fn(filename),
+        hashValue(hash),
+        modificationDate(QDateTime::fromString(modified, "MM dd yyyy")),
+        presentInNSRL((present.left(1) == "t") ? true : false)
+    {
+    }
+
     const QString& filename() const { return fn; }
     const QString& hash() const { return hashValue; }
     const QDateTime& modified() const { return modificationDate; }
     bool inNSRL() const { return presentInNSRL; }
 private:
-    FileMetaInformation(QString filename, QString md5, QString dateTime,
-                        QString inNSRL) :
-        fn(filename),
-        hashValue(md5),
-        modificationDate(QDateTime::fromString(dateTime, "MM dd yyyy")),
-        presentInNSRL(false)
-    {
-        if (inNSRL.left(1) == "t" || inNSRL.left(1) == "T")
-        {
-            presentInNSRL = true;
-        }
-    }
-
     QString fn;
     QString hashValue;
     QDateTime modificationDate;
@@ -70,54 +98,39 @@ private slots:
     void doActionQuit();
     void doActionHelpIndex();
     void doActionAbout();
-    void md5deepStarted();
-    void processMd5deepOutput();
-    void md5deepEnded(int code);
-    void nsrllookupStarted();
-    void processNsrllookupOutput();
-    void nsrllookupEnded(int code);
-    void updateFractionComplete(int frac);
     void toggleClicked(int);
     void dateEditChanged(QDateTime);
     void itemDoubleClicked(QTreeWidgetItem* item, int column);
+    void updateMessage(QString message);
+    void updateFileMetaInformation(std::vector<FileMetaInformation>* ptr);
 
 private:
     void updateUI();
     void updateTreeWidget();
     QTreeWidgetItem* getItemForPath(QString path);
     Ui::MainWindow *ui;
-    const static QString md5deep_path;
-    const static QString nsrllookup_path;
-    unsigned long fileCount;
-    QString currentFile;
-    QProcess *md5deep;
-    QProcess *nsrllookup;
-    QString data;
-    QString nsrldata;
     bool hasUnsavedData;
     QString saveAsFilename;
-    QTimer* timer;
     std::vector<FileMetaInformation> files;
     std::map<QString, QTreeWidgetItem*> itemMap;
+    Worker* worker;
 };
 
-class ModificationTimeWorker : public QThread
+class Worker : public QThread
 {
-    friend class MainWindow;
     Q_OBJECT
 public:
-    ModificationTimeWorker(const QString fromMd5deep,
-                           std::vector<FileMetaInformation>& f) :
-        md5deep(fromMd5deep),
-        files(f)
+    Worker(QString& path) :
+        root(path)
     {}
     void run();
-signals:
-    void completedSome(int frac);
+signals:    
+    void updateMessage(QString message);
+    void updateFileMetaInformation(std::vector<FileMetaInformation>* ptr);
 
 private:
-    const QString md5deep;
-    std::vector<FileMetaInformation>& files;
+    QStringList getFilenames();
+    const QString root;
 };
 
 #endif // MAINWINDOW_H

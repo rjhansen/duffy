@@ -3,60 +3,77 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QThread>
+#include <QDesktopServices>
+#include <QTcpSocket>
+#include <QUrl>
+#include <list>
 #include <algorithm>
 #include <map>
-#include <QDesktopServices>
-#include <QUrl>
 
 #ifdef WIN32
 #include <windows.h>
 #endif
 
+#define BOMB_WITH_WARNING(x) {\
+emit updateMessage(QString("Warning: ") + QString(x));\
+emit updateMessage("worker complete");\
+return;\
+}
+
 using std::cout;
 using std::cerr;
+using std::list;
 
 using std::vector;
 using std::count;
 using std::map;
 using std::make_pair;
+using std::sort;
+using std::string;
+using std::find;
+using std::not1;
+using std::ptr_fun;
 
 namespace {
-QString getPathToMd5deep()
+
+inline bool is_hex(const char c)
 {
-#ifdef WIN32
-    BOOL isWow64 = FALSE;
-    IsWow64Process(GetCurrentProcess(), &isWow64);
-    return QString(isWow64 ? "executables/md5deep64.exe"
-                           : "executables/md5deep.exe");
-#else
-    return QString("executables/md5deep");
-#endif
+    return ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) ? true : false;
 }
 
-QString getPathToNsrllookup()
+vector<string> tokenize_query_string(const string& input)
 {
-#ifdef WIN32
-    return QString("executables/nsrllookup.exe");
-#else
-    return QString("executables/nsrllookup");
-#endif
-}
-}
+    vector<string> rv;
 
-const QString MainWindow::md5deep_path = getPathToMd5deep();
-const QString MainWindow::nsrllookup_path = getPathToNsrllookup();
+    string::const_iterator b = input.begin() + 6;
+    string::const_iterator e = find(b, input.end(), ' ');
+    while (b != input.end())
+    {
+        string hex(b, e);
+        hex.erase(remove_if(hex.begin(), hex.end(), not1(ptr_fun(is_hex))), hex.end());
+        if (32 == hex.size())
+            rv.push_back(hex);
+
+        if (e != input.end())
+            b = e + 1;
+        else
+            b = e;
+
+        if (b != input.end())
+        {
+            e = find(b, input.end(), ' ');
+        }
+    }
+    return rv;
+}
+}
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
-    fileCount(0),
-    currentFile(),
-    md5deep(0),
-    nsrllookup(0),
-    data(),
     hasUnsavedData(false),
     saveAsFilename(),
-    timer(0)
+    worker(0)
 {
     ui->setupUi(this);
     connect(ui->actionAbout_Duffy, SIGNAL(triggered()), this, SLOT(doActionAbout()));
@@ -78,6 +95,28 @@ MainWindow::MainWindow(QWidget *parent) :
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::updateMessage(QString message)
+{
+    if (message == "worker complete")
+    {
+        worker->wait();
+        delete worker;
+        worker = 0;
+
+        ui->actionNew->setEnabled(true);
+        ui->actionClose->setEnabled((files.size() > 0) ? true : false);
+        ui->actionOpen->setEnabled(true);
+        ui->actionSave->setEnabled((files.size() > 0) ? true : false);
+        ui->actionSave_as->setEnabled((files.size() > 0) ? true : false);
+
+        hasUnsavedData = (files.size() > 0) ? true : false;
+    }
+    else
+    {
+        statusBar()->showMessage(message);
+    }
 }
 
 /** Callback for double clicking on a row in the QTreeWidget.
@@ -135,7 +174,7 @@ void MainWindow::dateEditChanged(QDateTime)
   */
 void MainWindow::toggleClicked(int)
 {
-    this->updateTreeWidget();
+    this->updateUI();
 }
 
 /** Updates the user interface to reflect the current state
@@ -179,13 +218,12 @@ void MainWindow::updateUI()
 void MainWindow::doActionAbout()
 {
     QMessageBox::about(this, "About Sgt. Duffy",
-                       "Sgt. Duffy 0.9.1 is (c) 2012, Robert J. Hansen <rjh@sixdemonbag.org>.\n\n"
-                       "You are free to use, share and modify this program in accordance with\n"
+                       "Sgt. Duffy 0.9.9 is (c) 2012, Robert J. Hansen <rjh@sixdemonbag.org>.\n\n"
+                       "You are free to use, share and modify this program in accordance with "
                        "the ISC License.\n\n"
-                       "Sgt. Duffy uses parts of Jesse Kornblum's md5deep suite.  md5deep is\n"
-                       "in the public domain.\n\n"
-                       "Sgt. Duffy is named after the intrepid analyst from Infocom's series\n"
-                       "of classic mystery games.");
+                       "Sgt. Duffy is named after the intrepid analyst from Infocom's series "
+                       "of classic mystery games.\n\n"
+                       "Good luck, and good hunting!");
     return;
 }
 
@@ -225,79 +263,8 @@ void MainWindow::doActionHelpIndex()
     return;
 }
 
-void MainWindow::md5deepEnded(int)
-{
-    md5deep = 0;
-    ui->actionNew->setEnabled(true);
-    ui->actionClose->setEnabled(true);
-    ui->actionOpen->setEnabled(true);
-    ui->actionSave->setEnabled(true);
-    ui->actionSave_as->setEnabled(true);
-
-    ui->showing->setEnabled(true);
-    ui->changedSince->setEnabled(true);
-    ui->knownToggle->setEnabled(true);
-    ui->fileType->setEnabled(true);
-    ui->dateEdit->setEnabled(true);
-
-    ui->treeWidget->setEnabled(true);
-
-    files.clear();
-
-    ui->statusBar->clearMessage();
-    ui->statusBar->showMessage("Updating modification times, 0% complete", 2500);
-
-    ModificationTimeWorker* thread = new ModificationTimeWorker(data, files);
-    connect(thread, SIGNAL(finished()), this, SLOT(nsrllookupStarted()));
-    connect(thread, SIGNAL(completedSome(int)), this, SLOT(updateFractionComplete(int)));
-    thread->start();
-}
-
-void MainWindow::updateFractionComplete(int frac)
-{
-    ui->statusBar->clearMessage();
-    QString newmsg = QString("Updating modification times, ") + QString::number(frac) + QString("% complete");
-    ui->statusBar->showMessage(newmsg, 2500);
-    if (frac >= 100)
-    {
-        QStringList args;
-        args << QString("-s") << QString("nsrl.kyr.us");
-        nsrllookup = new QProcess(this);
-        connect(nsrllookup, SIGNAL(started()), this, SLOT(nsrllookupStarted()));
-        connect(nsrllookup, SIGNAL(readyReadStandardOutput()), this, SLOT(processNsrllookupOutput()));
-        connect(nsrllookup, SIGNAL(finished(int)), this, SLOT(nsrllookupEnded(int)));
-        nsrllookup->start(MainWindow::nsrllookup_path, args);
-    }
-}
-
-void MainWindow::processMd5deepOutput()
-{
-    QByteArray barray = md5deep->readAllStandardOutput();
-    data += QString::fromAscii(barray.data());
-    fileCount += count(barray.begin(), barray.end(), '\n');
-
-    ui->statusBar->clearMessage();
-    QString filesProcessed = QString("md5deep: ") + QString::number(fileCount) + QString(" files processed");
-    ui->statusBar->showMessage(filesProcessed);
-}
-
-void MainWindow::md5deepStarted()
-{
-    ui->statusBar->clearMessage();
-    ui->statusBar->showMessage("md5deep: 0 files processed");
-}
-
 void MainWindow::doActionNew()
 {
-    fileCount = 0;
-    QString root("");
-#ifdef WIN32
-    CHAR buf[1024];
-    GetLogicalDriveStringsA(1024, buf);
-    root = QString(*buf) + QString(":\\");
-#else
-    root = QString("/");
-#endif
     if (hasUnsavedData)
     {
         {
@@ -318,7 +285,7 @@ void MainWindow::doActionNew()
             }
         }
     }
-    QString path = QFileDialog::getExistingDirectory(this, "Choose a directory", root);
+    QString path = QFileDialog::getExistingDirectory(this, "Choose a directory", QDir::homePath());
 
     if (path.isNull() || path == "")
     {
@@ -336,15 +303,19 @@ void MainWindow::doActionNew()
     ui->actionSave->setEnabled(false);
     ui->actionSave_as->setEnabled(false);
 
-    QStringList args;
-    args << QString("-r") << path;
-    md5deep = new QProcess(this);
-    connect(md5deep, SIGNAL(started()), this, SLOT(md5deepStarted()));
-    connect(md5deep, SIGNAL(readyReadStandardOutput()), this, SLOT(processMd5deepOutput()));
-    connect(md5deep, SIGNAL(finished(int)), this, SLOT(md5deepEnded(int)));
-    md5deep->start(MainWindow::md5deep_path, args);
+    worker = new Worker(path);
+    worker->start();
+    connect(worker, SIGNAL(updateMessage(QString)), this, SLOT(updateMessage(QString)));
+    connect(worker, SIGNAL(updateFileMetaInformation(std::vector<FileMetaInformation>*)), this, SLOT(updateFileMetaInformation(std::vector<FileMetaInformation>*)));
 
     return;
+}
+
+void MainWindow::updateFileMetaInformation(std::vector<FileMetaInformation>* ptr)
+{
+    files = *ptr;
+    delete ptr;
+    updateTreeWidget();
 }
 
 void MainWindow::doActionOpen()
@@ -367,7 +338,6 @@ void MainWindow::doActionOpen()
             return;
         }
     }
-    fileCount = 0;
     files.clear();
     ui->treeWidget->clear();
     hasUnsavedData = false;
@@ -454,57 +424,6 @@ void MainWindow::doActionSaveAs()
     if (!saveAsFilename.isNull()) doActionSave();
 }
 
-void MainWindow::nsrllookupStarted()
-{
-    nsrldata = QString();
-    ui->statusBar->clearMessage();
-    ui->statusBar->showMessage("Checking with nsrl.kyr.us...");
-    nsrllookup->write(data.toAscii());
-    nsrllookup->write("\x1A");
-    data = QString();
-}
-
-void MainWindow::processNsrllookupOutput()
-{
-    if (0 == nsrllookup)
-    {
-        return;
-    }
-    QByteArray barray = nsrllookup->readAllStandardOutput();
-    nsrldata += QString::fromAscii(barray.data());
-}
-
-void MainWindow::nsrllookupEnded(int)
-{
-    nsrllookup = 0;
-    ui->statusBar->clearMessage();
-    ui->statusBar->showMessage("Analysis finished");
-    QStringList as_list = nsrldata.split("\n");
-    nsrldata = QString();
-    QStringList::iterator qsiter = as_list.begin();
-    vector<FileMetaInformation>::iterator viter = files.begin();
-
-    while (qsiter != as_list.end())
-    {
-        QString notInNsrlFilename = qsiter->right(qsiter->size() - 34);
-        notInNsrlFilename = notInNsrlFilename.left(notInNsrlFilename.size() - 1);
-        while (viter != files.end() && viter->filename() != notInNsrlFilename)
-        {
-            viter->presentInNSRL = true;
-            ++viter;
-        }
-        ++qsiter;
-        if (viter != files.end())
-        {
-            ++viter;
-        }
-    }
-
-    hasUnsavedData = true;
-    fileCount = 0;
-    updateTreeWidget();
-}
-
 void MainWindow::updateTreeWidget()
 {
     vector<FileMetaInformation>::iterator viter = files.begin();
@@ -528,7 +447,7 @@ void MainWindow::updateTreeWidget()
             continue;
         }
 
-        QStringList pathParts = fn.split("\\");
+        QStringList pathParts = fn.split(QDir::separator());
         QString bareName = pathParts.last();
         QString extension = bareName.split(".").last();
 
@@ -547,7 +466,7 @@ void MainWindow::updateTreeWidget()
         }
 
         pathParts.removeLast();
-        QString justThePath = pathParts.join("\\") + "\\";
+        QString justThePath = pathParts.join(QDir::separator()) + QDir::separator();
         QTreeWidgetItem* pathItem = getItemForPath(justThePath);
         QTreeWidgetItem* item = new QTreeWidgetItem(pathItem);
         item->setText(0, bareName);
@@ -562,11 +481,11 @@ void MainWindow::updateTreeWidget()
 
 QTreeWidgetItem* MainWindow::getItemForPath(QString path)
 {
-    if (path.right(1) != QString("\\"))
+    if (path.right(1) != QString(QDir::separator()))
     {
-        path += "\\";
+        path += QDir::separator();
     }
-    QStringList pathParts = path.split("\\");
+    QStringList pathParts = path.split(QDir::separator());
     // drop the null element on the end
     pathParts.removeLast();
 
@@ -587,39 +506,152 @@ QTreeWidgetItem* MainWindow::getItemForPath(QString path)
     QString parentPath = "";
     for (int i = 0 ; i < pathParts.size() - 1 ; i += 1)
     {
-        parentPath += pathParts[i] + "\\";
+        parentPath += pathParts[i] + QDir::separator();
     }
     QTreeWidgetItem* parentItem = getItemForPath(parentPath);
     QTreeWidgetItem* thisItem = new QTreeWidgetItem(parentItem);
-    thisItem->setText(0, pathParts.last() + "\\");
-    itemMap.insert(make_pair(pathParts.join("\\") + "\\", thisItem));
+    thisItem->setText(0, pathParts.last() + QDir::separator());
+    itemMap.insert(make_pair(pathParts.join(QDir::separator()) + QDir::separator(), thisItem));
     return thisItem;
 }
 
-void ModificationTimeWorker::run()
+QStringList Worker::getFilenames()
 {
-    QStringList entries = md5deep.split("\n");
-    int updateEvery = 1;
-    if (entries.size() > 100) {
-        updateEvery = entries.size() / 100;
-    }
-    for (int i = 0 ; i < entries.size() ; i += 1)
-    {
-        const QString& entry = entries[i];
-        if (entry.size() <= 34)
-        {
-            continue;
-        }
-        QString hash = entry.left(32);
-        QString filename = entry.right(entry.size() - 34);
-        filename = filename.left(filename.size() - 1);
-        files.push_back(FileMetaInformation(filename, hash));
+    QStringList rv;
+    list<QString> scanlist;
+    QStringList dirlist;
+    list<QString>::iterator iter;
+    QStringList::iterator iter2;
+    scanlist.push_back(root);
 
-        if (i && (0 == i % updateEvery))
+    for (iter = scanlist.begin() ; iter != scanlist.end() ; ++iter)
+    {
+        QDir currentDir(*iter);
+        currentDir.setFilter(QDir::Dirs | QDir::NoSymLinks | QDir::NoDotAndDotDot | QDir::Readable | QDir::Hidden);
+        dirlist = currentDir.entryList();
+
+        for (iter2 = dirlist.begin() ; iter2 != dirlist.end() ; ++iter2)
         {
-            int frac = i / updateEvery;
-            emit completedSome(frac);
+            // Qt guarantees that it will interpolate forward slashes to an OS-appropriate
+            // path separator.  I don't personally believe them.  :)
+            QString path = *iter + QDir::separator() + *iter2;
+            scanlist.push_back(path);
         }
     }
-    emit completedSome(100);
+
+    scanlist.sort();
+
+    for (iter = scanlist.begin() ; iter != scanlist.end() ; ++iter)
+    {
+        QDir currentDir(*iter);
+        currentDir.setFilter(QDir::Files | QDir::NoSymLinks | QDir::NoDotAndDotDot | QDir::Readable | QDir::Hidden);
+        dirlist = currentDir.entryList();
+        for (iter2 = dirlist.begin() ; iter2 != dirlist.end() ; ++iter2)
+        {
+            QString path = *iter + QDir::separator() + *iter2;
+            rv.push_back(path);
+        }
+    }
+
+    return rv;
+}
+
+
+void Worker::run()
+{
+    // Part 1: the easy stuff.  Recursively walk the directory and compute MD5 hashes.
+    emit updateMessage(QString("Please wait ... counting files"));
+    QStringList files = getFilenames();
+
+    vector<FileMetaInformation>* fmi = new vector<FileMetaInformation>();
+    emit updateMessage("0 of " + QString::number(files.size()) + " files processed");
+    for (QStringList::iterator iter = files.begin() ; iter != files.end() ; ++iter)
+    {
+        FileMetaInformation thingy(*iter);
+        fmi->push_back(thingy);
+        if (0 == (fmi->size() % 10))
+            emit updateMessage(QString::number(fmi->size()) + " of " + QString::number(files.size()) + " files processed");
+    }
+
+
+    // Part 2: pain begins here.
+    map<QString, bool> hashmap;
+    for (vector<FileMetaInformation>::iterator iter = fmi->begin() ;
+         iter != fmi->end() ; ++iter)
+    {
+        hashmap[iter->hash()] = false;
+    }
+
+    vector<std::string> hashes;
+    for (map<QString, bool>::iterator iter = hashmap.begin() ; iter != hashmap.end() ; ++iter)
+    {
+        if (iter->first.size() != 32 && iter->first.size() != 40) BOMB_WITH_WARNING("internal consistency error #1");
+        hashes.push_back(iter->first.toStdString());
+    }
+    sort(hashes.begin(), hashes.end());
+
+    vector<std::string> query_strings;
+    std::string query_string = "query";
+    for (size_t idx = 0 ; idx < hashes.size() ; ++idx)
+    {
+        query_string = query_string + " " + hashes.at(idx);
+        if ((idx > 0) && (0 == (idx % 1000)))
+        {
+            query_strings.push_back(query_string + "\r\n");
+            query_string = "query";
+        }
+    }
+    if ("query" != query_string)
+    {
+        query_strings.push_back(query_string + "\r\n");
+    }
+
+
+    emit updateMessage("Contacting NSRL server at nsrl.kyr.us...");
+
+    QTcpSocket sock;
+    sock.connectToHost("nsrl.kyr.us", 9120);
+    if (false == sock.waitForConnected(5000)) BOMB_WITH_WARNING("could not connect to NSRL server");
+
+    sock.write("Version: 2.0\r\n");
+    if (false == sock.waitForReadyRead(5000)) BOMB_WITH_WARNING("NSRL server timed out");
+    QString qline = QString::fromLatin1(sock.readLine());
+    if ("OK" != qline.left(2)) BOMB_WITH_WARNING("NSRL server is out of date");
+
+    for (size_t idx = 0 ; idx < query_strings.size() ; ++idx)
+    {
+        hashes = tokenize_query_string(query_strings.at(idx));
+        sock.write(query_strings.at(idx).c_str());
+
+        if (false == sock.waitForReadyRead(5000)) BOMB_WITH_WARNING("NSRL server timed out");
+        string tmp = QString::fromLatin1(sock.readLine()).toStdString();
+        string status(tmp.begin(), tmp.begin() + 2);
+        if ("OK" != status) BOMB_WITH_WARNING("NSRL server gave an unexpected response");
+
+        string result(tmp.begin() + 3, tmp.end() - 2); // chop off the \r\n
+        if (result.size() != hashes.size()) BOMB_WITH_WARNING("NSRL server gave incomplete data");
+
+        for (size_t idx2 = 0 ; idx2 < hashes.size() ; ++idx2)
+        {
+            string hash = hashes.at(idx2);
+            bool present = (result.at(idx2) == '0') ? false : true;
+            map<QString, bool>::iterator mapiter = hashmap.find(QString::fromStdString(hash));
+            if (hashmap.end() == mapiter) BOMB_WITH_WARNING("internal consistency check failed");
+            mapiter->second = present;
+        }
+    }
+    sock.write("BYE\r\n");
+    sock.close();
+    for (vector<FileMetaInformation>::iterator iter = fmi->begin() ; iter != fmi->end() ; ++iter)
+    {
+        map<QString, bool>::iterator mapiter = hashmap.find(iter->hash());
+        if (hashmap.end() == mapiter) BOMB_WITH_WARNING("internal consistency check failed");
+        iter->presentInNSRL = mapiter->second;
+
+        if (iter->inNSRL())
+            std::cerr << iter->hash().toStdString() << "  " << iter->filename().toStdString() << "\n";
+    }
+    emit updateMessage("Query complete");
+    emit updateFileMetaInformation(fmi);
+    emit updateMessage("worker complete");
 }

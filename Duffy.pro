@@ -4,21 +4,21 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT        += core gui network svg
+TARGET     = "Sgt. Duffy"
+TEMPLATE   = app
+SOURCES   += main.cpp mainwindow.cpp
+HEADERS   += mainwindow.h
+FORMS     += mainwindow.ui
+RESOURCES += Resources.qrc
 
-TARGET = Duffy
-TEMPLATE = app
 
-
-SOURCES += main.cpp\
-        mainwindow.cpp
-
-HEADERS  += mainwindow.h
-
-FORMS    += mainwindow.ui
-
-RESOURCES += \
-    Resources.qrc
-
+win32 {
 OTHER_FILES += Duffy.ico icon.rc
 RC_FILE = icon.rc
+}
+
+macx {
+CONFIG   += app_bundle
+ICON = duffy_osx.icns
+}
