@@ -1,7 +1,7 @@
 !include "MUI2.nsh"
 
 Name "Sgt. Duffy"
-OutFile "Sgt. Duffy 0.9.9.exe"
+OutFile "Sgt. Duffy 1.0-RC1.exe"
 
 InstallDir "$PROGRAMFILES\Sgt. Duffy"
 RequestExecutionLevel admin
@@ -36,7 +36,7 @@ RequestExecutionLevel admin
 
 !insertmacro MUI_LANGUAGE "English"
 
-Section "Sgt. Duffy 0.9.9" 
+Section "Sgt. Duffy 1.0-RC1" 
 	SectionIn RO
 	SetOutPath "$INSTDIR"
 	File "Sgt. Duffy.exe"
