@@ -5,6 +5,7 @@
 #-------------------------------------------------
 
 QT        += core gui network svg
+CONFIG    += release warn_on
 TARGET     = "Sgt. Duffy"
 TEMPLATE   = app
 SOURCES   += main.cpp mainwindow.cpp

@@ -25,10 +25,10 @@
 #include <QMutex>
 #include <QTreeWidgetItem>
 #include <QCryptographicHash>
+#include <QDebug>
 
 #include <vector>
 #include <map>
-#include <iostream>
 
 namespace Ui {
 class MainWindow;
@@ -44,14 +44,18 @@ public:
     FileMetaInformation(QString filename) :
         fn(filename),
         hashValue("(could not access file)"),
-        modificationDate(QFileInfo(filename).lastModified()),
+        modificationDate(QDateTime::fromString("12 31 2999", "MM dd yyyy")),
         presentInNSRL(false)
     {
         QFile f(filename);
         QCryptographicHash engine(QCryptographicHash::Md5);
 
         if (! f.open(QIODevice::ReadOnly))
+        {
             return;
+        }
+
+        modificationDate = QFileInfo(filename).lastModified();
 
         while (!f.atEnd())
             engine.addData(f.read(1 << 20));
@@ -98,6 +102,7 @@ private slots:
     void doActionQuit();
     void doActionHelpIndex();
     void doActionAbout();
+    void doActionExportAsCSV();
     void toggleClicked(int);
     void dateEditChanged(QDateTime);
     void itemDoubleClicked(QTreeWidgetItem* item, int column);

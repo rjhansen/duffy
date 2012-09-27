@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'mainwindow.ui'
 **
-** Created: Mon Sep 24 04:53:36 2012
+** Created: Thu Sep 27 13:59:23 2012
 **      by: Qt User Interface Compiler version 4.8.3
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
@@ -41,6 +41,7 @@ public:
     QAction *actionQuit;
     QAction *actionHelp_index;
     QAction *actionAbout_Duffy;
+    QAction *actionExport_as_CSV;
     QWidget *centralWidget;
     QVBoxLayout *verticalLayout;
     QHBoxLayout *horizontalLayout_2;
@@ -106,6 +107,8 @@ public:
         actionAbout_Duffy = new QAction(MainWindow);
         actionAbout_Duffy->setObjectName(QString::fromUtf8("actionAbout_Duffy"));
         actionAbout_Duffy->setIcon(icon);
+        actionExport_as_CSV = new QAction(MainWindow);
+        actionExport_as_CSV->setObjectName(QString::fromUtf8("actionExport_as_CSV"));
         centralWidget = new QWidget(MainWindow);
         centralWidget->setObjectName(QString::fromUtf8("centralWidget"));
         verticalLayout = new QVBoxLayout(centralWidget);
@@ -180,8 +183,11 @@ public:
         menuBar->addAction(menuHelp->menuAction());
         menuFile->addAction(actionNew);
         menuFile->addAction(actionOpen);
+        menuFile->addSeparator();
         menuFile->addAction(actionSave);
         menuFile->addAction(actionSave_as);
+        menuFile->addAction(actionExport_as_CSV);
+        menuFile->addSeparator();
         menuFile->addAction(actionClose);
         menuFile->addAction(actionQuit);
         menuHelp->addAction(actionHelp_index);
@@ -207,6 +213,10 @@ public:
         actionQuit->setText(QApplication::translate("MainWindow", "Quit", 0, QApplication::UnicodeUTF8));
         actionHelp_index->setText(QApplication::translate("MainWindow", "Help index", 0, QApplication::UnicodeUTF8));
         actionAbout_Duffy->setText(QApplication::translate("MainWindow", "About Duffy", 0, QApplication::UnicodeUTF8));
+        actionExport_as_CSV->setText(QApplication::translate("MainWindow", "Export as CSV", 0, QApplication::UnicodeUTF8));
+#ifndef QT_NO_TOOLTIP
+        actionExport_as_CSV->setToolTip(QApplication::translate("MainWindow", "Export data as comma-separated values", 0, QApplication::UnicodeUTF8));
+#endif // QT_NO_TOOLTIP
         showing->setText(QApplication::translate("MainWindow", "Showing", 0, QApplication::UnicodeUTF8));
         knownToggle->clear();
         knownToggle->insertItems(0, QStringList()

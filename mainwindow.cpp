@@ -31,14 +31,14 @@
 #include <windows.h>
 #endif
 
+#define VERSION "1.0-RC1"
+
 #define BOMB_WITH_WARNING(x) {\
 emit updateMessage(QString("Warning: ") + QString(x));\
 emit updateMessage("worker complete");\
 return;\
 }
 
-using std::cout;
-using std::cerr;
 using std::list;
 
 using std::vector;
@@ -46,43 +46,11 @@ using std::count;
 using std::map;
 using std::make_pair;
 using std::sort;
-using std::string;
 using std::find;
 using std::not1;
 using std::ptr_fun;
 
 namespace {
-
-inline bool is_hex(const char c)
-{
-    return ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) ? true : false;
-}
-
-vector<string> tokenize_query_string(const string& input)
-{
-    vector<string> rv;
-
-    string::const_iterator b = input.begin() + 6;
-    string::const_iterator e = find(b, input.end(), ' ');
-    while (b != input.end())
-    {
-        string hex(b, e);
-        hex.erase(remove_if(hex.begin(), hex.end(), not1(ptr_fun(is_hex))), hex.end());
-        if (32 == hex.size())
-            rv.push_back(hex);
-
-        if (e != input.end())
-            b = e + 1;
-        else
-            b = e;
-
-        if (b != input.end())
-        {
-            e = find(b, input.end(), ' ');
-        }
-    }
-    return rv;
-}
 }
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -101,6 +69,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->actionQuit, SIGNAL(triggered()), this, SLOT(doActionQuit()));
     connect(ui->actionSave, SIGNAL(triggered()), this, SLOT(doActionSave()));
     connect(ui->actionSave_as, SIGNAL(triggered()), this, SLOT(doActionSaveAs()));
+    connect(ui->actionExport_as_CSV, SIGNAL(triggered()), this, SLOT(doActionExportAsCSV()));
     connect(ui->knownToggle, SIGNAL(activated(int)), SLOT(toggleClicked(int)));
     connect(ui->fileType, SIGNAL(activated(int)), SLOT(toggleClicked(int)));
     connect(ui->dateEdit, SIGNAL(dateTimeChanged(QDateTime)), SLOT(dateEditChanged(QDateTime)));
@@ -112,6 +81,33 @@ MainWindow::MainWindow(QWidget *parent) :
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::doActionExportAsCSV()
+{
+    saveAsFilename = QFileDialog::getSaveFileName(this, "Save as", QString(), "Comma-separated value files (*.csv)");
+    if (saveAsFilename.isNull()) return;
+
+    QFile file(saveAsFilename);
+    if (! file.open(QIODevice::WriteOnly|QIODevice::Text))
+    {
+        QMessageBox::warning(this,
+                             "Couldn't save file",
+                             "A disk error of some sort occurred.",
+                             QMessageBox::Ok,
+                             QMessageBox::Ok);
+        return;
+    }
+    for (size_t i = 0 ; i < files.size() ; i++) {
+        const FileMetaInformation& fmi = files[i];
+        QString escapedFilename = fmi.filename();
+        escapedFilename.replace("\"", "\"\"");
+        escapedFilename = "\"" + escapedFilename + "\"";
+        QString row = escapedFilename + "," + fmi.hash() + "," +
+                fmi.modified().toString("MM dd yyyy") + "," +
+                (fmi.inNSRL() ? "Y" : "N") + "\n";
+        file.write(row.toAscii());
+    }
 }
 
 void MainWindow::updateMessage(QString message)
@@ -235,7 +231,7 @@ void MainWindow::updateUI()
 void MainWindow::doActionAbout()
 {
     QMessageBox::about(this, "About Sgt. Duffy",
-                       "Sgt. Duffy 0.9.9 is (c) 2012, Robert J. Hansen <rjh@sixdemonbag.org>.\n\n"
+                       "Sgt. Duffy " VERSION " is (c) 2012, Robert J. Hansen <rjh@sixdemonbag.org>.\n\n"
                        "You are free to use, share and modify this program in accordance with "
                        "the ISC License.\n\n"
                        "Sgt. Duffy is named after the intrepid analyst from Infocom's series "
@@ -443,6 +439,7 @@ void MainWindow::doActionSave()
                              QMessageBox::Ok,
                              QMessageBox::Ok);
         saveAsFilename = "";
+        return;
     }
     for (size_t i = 0 ; i < files.size() ; i++) {
         const FileMetaInformation& fmi = files[i];
@@ -474,7 +471,7 @@ void MainWindow::updateTreeWidget()
     bool showAllFiles = (ui->fileType->currentIndex()) ? false : true;
     QDateTime since = (ui->dateEdit->dateTime());
 
-    for ( ; viter != files.end() ; ++viter)
+    for ( viter = files.begin() ; viter != files.end() ; ++viter)
     {
         const FileMetaInformation& fmi = *viter;
         const QDateTime& modified = fmi.modified();
@@ -579,8 +576,6 @@ QStringList Worker::getFilenames()
         }
     }
 
-    scanlist.sort();
-
     for (iter = scanlist.begin() ; iter != scanlist.end() ; ++iter)
     {
         QDir currentDir(*iter);
@@ -592,6 +587,8 @@ QStringList Worker::getFilenames()
             rv.push_back(path);
         }
     }
+
+    rv.sort();
 
     return rv;
 }
@@ -624,15 +621,15 @@ void Worker::run()
             hashmap[iter->hash()] = false;
     }
 
-    vector<std::string> hashes;
+    vector<QString> hashes;
     for (map<QString, bool>::iterator iter = hashmap.begin() ; iter != hashmap.end() ; ++iter)
     {
-        hashes.push_back(iter->first.toStdString());
+        hashes.push_back(iter->first);
     }
     sort(hashes.begin(), hashes.end());
 
-    vector<std::string> query_strings;
-    std::string query_string = "query";
+    vector<QString> query_strings;
+    QString query_string = "query";
     for (size_t idx = 0 ; idx < hashes.size() ; ++idx)
     {
         query_string = query_string + " " + hashes.at(idx);
@@ -661,22 +658,35 @@ void Worker::run()
 
     for (size_t idx = 0 ; idx < query_strings.size() ; ++idx)
     {
-        hashes = tokenize_query_string(query_strings.at(idx));
-        sock.write(query_strings.at(idx).c_str());
+        QStringList tokenized_by_space = query_strings.at(idx).split(' ');
+        hashes.clear();
+        for (qint64 i = 1 ; i < tokenized_by_space.size() ; i += 1)
+        {
+            QString hv = tokenized_by_space.at(i);
+            if (32 != hv.size())
+            {
+                hv = hv.left(32);
+            }
+            hashes.push_back(hv);
+        }
+        sock.write(query_strings.at(idx).toLatin1());
 
         if (false == sock.waitForReadyRead(5000)) BOMB_WITH_WARNING("NSRL server timed out");
-        string tmp = QString::fromLatin1(sock.readLine()).toStdString();
-        string status(tmp.begin(), tmp.begin() + 2);
-        if ("OK" != status) BOMB_WITH_WARNING("NSRL server gave an unexpected response");
+        QString status = sock.readLine();
+        if ("OK" != status.left(2)) BOMB_WITH_WARNING("NSRL server gave an unexpected response");
 
-        string result(tmp.begin() + 3, tmp.end() - 2); // chop off the \r\n
-        if (result.size() != hashes.size()) BOMB_WITH_WARNING("NSRL server gave incomplete data");
+        QString result = status.right(status.size() - 3); // chop off the "OK "
+        result = result.left(result.size() - 2); // chop off the "\r\n"
+
+        qint64 result_size = (qint64) result.size();
+        qint64 hashes_size = (qint64) hashes.size();
+        if (result_size != hashes_size) BOMB_WITH_WARNING("NSRL server gave incomplete data");
 
         for (size_t idx2 = 0 ; idx2 < hashes.size() ; ++idx2)
         {
-            string hash = hashes.at(idx2);
+            QString hash = hashes.at(idx2);
             bool present = (result.at(idx2) == '0') ? false : true;
-            map<QString, bool>::iterator mapiter = hashmap.find(QString::fromStdString(hash));
+            map<QString, bool>::iterator mapiter = hashmap.find(hash);
             if (hashmap.end() == mapiter) BOMB_WITH_WARNING("internal consistency check #1 failed");
             mapiter->second = present;
         }
