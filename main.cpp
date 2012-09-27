@@ -26,9 +26,6 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
 #ifdef WIN32
     QApplication::setStyle("clearlooks");
-    QTextCodec::setCodecForCStrings(QTextCodec::codecForName("UTF-16"));
-#else
-    QTextCodec::setCodecForCStrings(QTextCodec::codecForName("UTF-8"));
 #endif
     MainWindow w;
     w.show();
