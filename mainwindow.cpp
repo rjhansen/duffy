@@ -31,8 +31,6 @@
 #include <windows.h>
 #endif
 
-#define VERSION "1.0 RC2"
-
 #define BOMB_WITH_WARNING(x) {\
 emit updateMessage(QString("Warning: ") + QString(x));\
 emit updateMessage("worker complete");\
@@ -231,7 +229,7 @@ void MainWindow::updateUI()
 void MainWindow::doActionAbout()
 {
     QMessageBox::about(this, "About Duffy",
-                       "Duffy " VERSION " is (c) 2012, Robert J. Hansen <rjh@sixdemonbag.org>.\n\n"
+                       "Duffy " VERSION " for " PLATFORM " is (c) 2012, Robert J. Hansen <rjh@sixdemonbag.org>.\n\n"
                        "You are free to use, share and modify this program in accordance with "
                        "the ISC License.\n\n"
                        "Duffy is named after the intrepid analyst from Infocom's series "
