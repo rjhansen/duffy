@@ -31,7 +31,7 @@
 #include <windows.h>
 #endif
 
-#define VERSION "1.0-RC1"
+#define VERSION "1.0 RC2"
 
 #define BOMB_WITH_WARNING(x) {\
 emit updateMessage(QString("Warning: ") + QString(x));\
