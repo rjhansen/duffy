@@ -1,0 +1,8 @@
+Format: http://dep.debian.net/deps/dep5
+Upstream-Name: duffy
+Source: <http://rjhansen.github.com/duffy>
+
+Files: *
+Copyright: 2012 Robert J. Hansen
+
+License: ISC License

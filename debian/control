@@ -1,0 +1,15 @@
+Source: duffy
+Section: Security
+Priority: extra
+Maintainer: Robert J. Hansen <rjh@sixdemonbag.org>
+Build-Depends: debhelper (>= 8.0.0), libqt4-dev, cdbs
+Standards-Version: 3.9.2
+Homepage: http://rjhansen.github.com/duffy
+
+Package: duffy
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: graphical interface to the NIST NSRL RDS
+ Duffy provides a graphical interface to NIST's National Software Reference
+ Library Reference Data Set (NSRL RDS).
+

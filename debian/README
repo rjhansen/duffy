@@ -1,0 +1,2 @@
+Remember: debuild will be looking for duffy-X.Y.tar.gz and 
+duffy_X.Y.orig.tar.gz *two levels above here*.
