@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
 #ifdef WIN32
-    QApplication::setStyle("clearlooks");
+    QApplication::setStyle("cleanlooks");
 #endif
     MainWindow w;
     w.show();

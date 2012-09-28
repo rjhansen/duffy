@@ -1,15 +1,18 @@
 !include "MUI2.nsh"
 
-Name "Sgt. Duffy"
-OutFile "Sgt. Duffy 1.0-RC1.exe"
+Name "Duffy"
+OutFile "Duffy 1.0-RC2.exe"
 
-InstallDir "$PROGRAMFILES\Sgt. Duffy"
+InstallDir "$PROGRAMFILES\Duffy"
 RequestExecutionLevel admin
 
 ; MUI Settings / Icons
 !define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\orange-install-nsis.ico"
 !define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\orange-uninstall-nsis.ico"
  
+ 
+!define MUI_COMPONENTSPAGE_SMALLDESC
+
 ; MUI Settings / Header
 !define MUI_HEADERIMAGE
 !define MUI_HEADERIMAGE_RIGHT
@@ -36,10 +39,10 @@ RequestExecutionLevel admin
 
 !insertmacro MUI_LANGUAGE "English"
 
-Section "Sgt. Duffy 1.0-RC1" 
+Section "Duffy 1.0-RC2" Duffy
 	SectionIn RO
 	SetOutPath "$INSTDIR"
-	File "Sgt. Duffy.exe"
+	File "duffy.exe"
 	File "QtCore4.dll"
 	File "QtGui4.dll"
 	File "QtNetwork4.dll"
@@ -47,22 +50,29 @@ Section "Sgt. Duffy 1.0-RC1"
 	File "duffy.nsi"
 	File "License.rtf"
 	WriteUninstaller "$INSTDIR\Uninstall.exe"
-	CreateDirectory "$SMPROGRAMS\Sgt. Duffy"
-	CreateShortCut "$SMPROGRAMS\Sgt. Duffy\Sgt. Duffy.lnk" "$INSTDIR\Sgt. Duffy.exe"
-	CreateShortCut "$SMPROGRAMS\Sgt. Duffy\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
+	CreateDirectory "$SMPROGRAMS\Duffy"
+	CreateShortCut "$SMPROGRAMS\Duffy\Duffy.lnk" "$INSTDIR\duffy.exe"
+	CreateShortCut "$SMPROGRAMS\Duffy\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
 SectionEnd
 
-Section "Microsoft Visual C++ 2010 SP1 runtime"
+Section "Microsoft Visual C++ 2010 SP1 runtime" MSVCRT
     SetOutPath "$INSTDIR"
 	File "vcredist_x86.exe"
-	Exec "$INSTDIR\vcredist_x86.exe /q"
+	ExecWait "$INSTDIR\vcredist_x86.exe"
 	Delete "$INSTDIR\vcredist_x86.exe"
 SectionEnd
 
 Section "Uninstall"
 	Delete "$INSTDIR\*.*"
 	RmDir "$INSTDIR"
-	Delete "$SMPROGRAMS\Sgt. Duffy\Sgt. Duffy.lnk"
-	Delete "$SMPROGRAMS\Sgt. Duffy\Uninstall.lnk"
-	RmDir "$SMPROGRAMS\Sgt. Duffy"
+	Delete "$SMPROGRAMS\Duffy\Duffy.lnk"
+	Delete "$SMPROGRAMS\Duffy\Uninstall.lnk"
+	RmDir "$SMPROGRAMS\Duffy"
 SectionEnd
+
+LangString DescDuffy ${LANG_ENGLISH} "The core files required by Duffy."
+LangString DescMSVCRT ${LANG_ENGLISH} "The Microsoft Visual C++ 2010 Runtime, Service Pack 1."
+!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
+!insertmacro MUI_DESCRIPTION_TEXT ${Duffy} $(DescDuffy)
+!insertmacro MUI_DESCRIPTION_TEXT ${MSVCRT} $(DescMSVCRT)
+!insertmacro MUI_FUNCTION_DESCRIPTION_END

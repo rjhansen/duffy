@@ -8,15 +8,20 @@ TARGET                  = duffy
 VERSION                 = 1.0-RC2
 AUTHOR                  = \"Robert J. Hansen\"
 PACKAGE_IDENTIFIER      = \"com.secret-alchemy.Duffy\"
-DEFINES                += 'VERSION=\'\"$${VERSION}\"\''
 
 win32 {
 OTHER_FILES            += Duffy.ico icon.rc
 RC_FILE                 = icon.rc
-DEFINES                += 'PLATFORM=\'\"Windows\"\''
+
+# To build this with G++ for Windows, you'll have to adjust these #defines
+# so that they look like the macx or unix versions below.  MSVC has a
+# slightly wacky syntax.
+DEFINES                += VERSION=\\\"$${VERSION}\\\"
+DEFINES                += PLATFORM=\\\"Windows\\\"
 }
 
 macx {
+DEFINES                += 'VERSION=\'\"$${VERSION}\"\''
 DEFINES                += 'PLATFORM=\'\"Mac OS X\"\''
 CONFIG                 += app_bundle
 ICON                    = duffy_osx.icns
@@ -66,6 +71,7 @@ QMAKE_EXTRA_TARGETS += codesign product copyfiles dmg pristine
 }
 
 unix:!macx {
+DEFINES     += 'VERSION=\'\"$${VERSION}\"\''
 DEFINES     += 'PLATFORM=\'\"Unix\"\''
 target.path  = /usr/bin
 INSTALLS    += target
