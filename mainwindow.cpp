@@ -230,11 +230,11 @@ void MainWindow::updateUI()
   */
 void MainWindow::doActionAbout()
 {
-    QMessageBox::about(this, "About Sgt. Duffy",
-                       "Sgt. Duffy " VERSION " is (c) 2012, Robert J. Hansen <rjh@sixdemonbag.org>.\n\n"
+    QMessageBox::about(this, "About Duffy",
+                       "Duffy " VERSION " is (c) 2012, Robert J. Hansen <rjh@sixdemonbag.org>.\n\n"
                        "You are free to use, share and modify this program in accordance with "
                        "the ISC License.\n\n"
-                       "Sgt. Duffy is named after the intrepid analyst from Infocom's series "
+                       "Duffy is named after the intrepid analyst from Infocom's series "
                        "of classic mystery games.\n\n"
                        "Good luck, and good hunting!");
     return;

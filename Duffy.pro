@@ -36,8 +36,8 @@ QMAKE_LFLAGS_RELEASE = $$QMAKE_LFLAGS_RELEASE_WITH_DEBUGINFO
 OTHER_FILES += duffy.plist
 
 codesign.depends  += all
-codesign.commands += macdeployqt duffy.app;
-codesign.commands += dsymutil duffy.app/Contents/MacOS/duffy -o duffy.app.dSYM;
+codesign.commands += macdeployqt duffy.app
+codesign.commands += dsymutil duffy.app/Contents/MacOS/Sgt.\\ Duffy -o duffy.app.dSYM;
 
 # Sign frameworks and plug-ins (uncomment and change to suit your application)
 codesign.commands += codesign -s \"Robert J. Hansen\" -i \"com.secret-alchemy.Duffy\" duffy.app/Contents/Frameworks/QtCore.framework/Versions/4/QtCore;
@@ -63,11 +63,14 @@ codesign.commands += codesign -s \"Robert J. Hansen\" -i \"com.secret-alchemy.Du
 
 # Sign the application bundle, using the provided entitlements
 codesign.commands += codesign -f -s \"Robert J. Hansen\" -i \"com.secret-alchemy.Duffy\" -v duffy.app;
-product.depends += all
 
-# Build the product package
-product.commands += productbuild --component duffy.app /Applications --sign \"Robert J. Hansen\" duffy.pkg;
-QMAKE_EXTRA_TARGETS += codesign product copyfiles
+product.depends += all
+product.commands += productbuild --component duffy.app /Applications --sign \"Robert J. Hansen\" duffy.pkg
+
+dmg.depends += codesign
+dmg.commands = hdiutil create -fs HFS+ -volname \"Duffy 1.0-RC1\" -srcfolder duffy.app \"Duffy 1.0 RC1.dmg\"
+
+QMAKE_EXTRA_TARGETS += codesign product copyfiles dmg
 }
 
 unix:!macx {
