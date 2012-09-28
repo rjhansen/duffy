@@ -276,7 +276,7 @@ void MainWindow::doActionClose()
 
 void MainWindow::doActionHelpIndex()
 {
-    QUrl url("http://keyservers.org/~rjh/duffy");
+    QUrl url("http://rjhansen.github.com/duffy");
     QDesktopServices::openUrl(url);
     return;
 }
