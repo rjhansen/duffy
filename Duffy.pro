@@ -5,7 +5,7 @@ HEADERS                += mainwindow.h
 FORMS                  += mainwindow.ui
 RESOURCES              += Resources.qrc
 TARGET                  = duffy
-VERSION                 = 1.0-RC2
+VERSION                 = 1.0
 AUTHOR                  = \"Robert J. Hansen\"
 PACKAGE_IDENTIFIER      = \"com.secret-alchemy.Duffy\"
 

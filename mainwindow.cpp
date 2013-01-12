@@ -121,6 +121,7 @@ void MainWindow::updateMessage(QString message)
         ui->actionOpen->setEnabled(true);
         ui->actionSave->setEnabled((files.size() > 0) ? true : false);
         ui->actionSave_as->setEnabled((files.size() > 0) ? true : false);
+        ui->actionExport_as_CSV->setEnabled((files.size() > 0) ? true : false);
 
         hasUnsavedData = (files.size() > 0) ? true : false;
     }
@@ -191,7 +192,7 @@ void MainWindow::toggleClicked(int)
 /** Updates the user interface to reflect the current state
   * of the application.
   *
-  * Side effects: updates the UI
+  * Side effects: updates the UIlinux live desktop kde
   *
   * Error handling: none
   *
@@ -207,10 +208,12 @@ void MainWindow::updateUI()
         ui->actionClose->setEnabled(true);
         ui->actionSave->setEnabled(true);
         ui->actionSave_as->setEnabled(true);
+        ui->actionExport_as_CSV->setEnabled(true);
     } else {
         ui->actionClose->setEnabled(false);
         ui->actionSave->setEnabled(false);
         ui->actionSave_as->setEnabled(false);
+        ui->actionExport_as_CSV->setEnabled(false);
     }
     updateTreeWidget();
 }
@@ -229,11 +232,9 @@ void MainWindow::updateUI()
 void MainWindow::doActionAbout()
 {
     QMessageBox::about(this, "About Duffy",
-                       "Duffy " VERSION " for " PLATFORM " is (c) 2012, Robert J. Hansen <rjh@sixdemonbag.org>.\n\n"
-                       "You are free to use, share and modify this program in accordance with "
-                       "the ISC License.\n\n"
-                       "Duffy is named after the intrepid analyst from Infocom's series "
-                       "of classic mystery games.\n\n"
+                       "Duffy " VERSION " for " PLATFORM " is (c) 2012-2013, Robert J. Hansen <rjh@sixdemonbag.org>.\n\n"
+                       "You are free to use, share and modify this program in accordance with the ISC License.\n\n"
+                       "Duffy is named after the intrepid analyst from Infocom's series of classic mystery games.\n\n"
                        "Good luck, and good hunting!");
     return;
 }
@@ -318,6 +319,7 @@ void MainWindow::doActionNew()
     ui->actionOpen->setEnabled(false);
     ui->actionSave->setEnabled(false);
     ui->actionSave_as->setEnabled(false);
+    ui->actionExport_as_CSV->setEnabled(false);
 
     worker = new Worker(path);
     worker->start();
@@ -643,10 +645,10 @@ void Worker::run()
     }
 
 
-    emit updateMessage("Contacting NSRL server at nsrl.kyr.us...");
+    emit updateMessage("Contacting NSRL server at keyservers.org...");
 
     QTcpSocket sock;
-    sock.connectToHost("nsrl.kyr.us", 9120);
+    sock.connectToHost("keyservers.org", 9120);
     if (false == sock.waitForConnected(10000)) BOMB_WITH_WARNING("could not connect to NSRL server");
 
     sock.write("Version: 2.0\r\n");

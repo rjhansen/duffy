@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'mainwindow.ui'
 **
-** Created: Fri Sep 28 02:49:47 2012
+** Created: Sat Jan 12 13:38:01 2013
 **      by: Qt User Interface Compiler version 4.8.3
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
@@ -109,6 +109,7 @@ public:
         actionAbout_Duffy->setIcon(icon);
         actionExport_as_CSV = new QAction(MainWindow);
         actionExport_as_CSV->setObjectName(QString::fromUtf8("actionExport_as_CSV"));
+        actionExport_as_CSV->setEnabled(false);
         centralWidget = new QWidget(MainWindow);
         centralWidget->setObjectName(QString::fromUtf8("centralWidget"));
         verticalLayout = new QVBoxLayout(centralWidget);
@@ -166,7 +167,7 @@ public:
         MainWindow->setCentralWidget(centralWidget);
         menuBar = new QMenuBar(MainWindow);
         menuBar->setObjectName(QString::fromUtf8("menuBar"));
-        menuBar->setGeometry(QRect(0, 0, 613, 22));
+        menuBar->setGeometry(QRect(0, 0, 613, 23));
         menuFile = new QMenu(menuBar);
         menuFile->setObjectName(QString::fromUtf8("menuFile"));
         menuHelp = new QMenu(menuBar);
